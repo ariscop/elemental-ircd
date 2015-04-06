@@ -82,6 +82,7 @@
  **/
 
 #include "stdinc.h"
+#include "http_parser.h"
 
 #define MAXPASSFD 4
 #ifndef READBUF_SIZE

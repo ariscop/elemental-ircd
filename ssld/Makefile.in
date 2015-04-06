@@ -38,7 +38,8 @@ pkglibexec_PROGS = ssld
 PROGS		= $(pkglibexec_PROGS)
 
 SOURCES =     \
-  ssld.c
+  ssld.c \
+  http_parser.c
   
 
 OBJECTS = ${SOURCES:.c=.o}
