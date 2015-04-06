@@ -165,9 +165,11 @@ typedef struct _conn {
 
 /* Duplicated in listener.h */
 #define PLAIN_PORT (0)
-#define SSL_PORT (1 << 0)
+#define SSL_PORT   (1 << 0)
+#define WS_PORT    (1 << 0)
 
 #define IsSSL(x)   ((x)->type & SSL_PORT)
+#define IsWS(x)    ((x)->type & WS_PORT)
 
 #define FLAG_CORK          (1 << 0)
 #define FLAG_DEAD          (1 << 1)

@@ -880,6 +880,18 @@ conf_set_listen_sslport(void *data)
 }
 
 static void
+conf_set_listen_wsport(void *data)
+{
+    conf_set_listen_port_both(data, WS_PORT | PLAIN_PORT);
+}
+
+static void
+conf_set_listen_wssport(void *data)
+{
+    conf_set_listen_port_both(data, WS_PORT | SSL_PORT);
+}
+
+static void
 conf_set_listen_address(void *data)
 {
     rb_free(listener_address);
@@ -2253,6 +2265,8 @@ newconf_init()
     add_conf_item("listen", "defer_accept", CF_YESNO, conf_set_listen_defer_accept);
     add_conf_item("listen", "port", CF_INT | CF_FLIST, conf_set_listen_port);
     add_conf_item("listen", "sslport", CF_INT | CF_FLIST, conf_set_listen_sslport);
+    add_conf_item("listen", "wsport", CF_INT | CF_FLIST, conf_set_listen_wsport);
+    add_conf_item("listen", "wssport", CF_INT | CF_FLIST, conf_set_listen_wssport);
     add_conf_item("listen", "ip", CF_QSTRING, conf_set_listen_address);
     add_conf_item("listen", "host", CF_QSTRING, conf_set_listen_address);
 

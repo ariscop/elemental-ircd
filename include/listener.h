@@ -31,7 +31,8 @@
 struct Client;
 
 #define PLAIN_PORT (0)
-#define SSL_PORT (1 << 0)
+#define SSL_PORT   (1 << 0)
+#define WS_PORT    (2 << 0)
 
 struct Listener {
     struct Listener *next;   /* list node pointer */
