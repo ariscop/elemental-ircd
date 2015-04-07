@@ -353,9 +353,12 @@ conn_mod_write_sendq(rb_fde_t *fd, void *data)
     while((retlen = rb_rawbuf_flush(conn->modbuf_out, fd)) > 0)
         conn->mod_out += retlen;
 
-    if(retlen == 0 || (retlen < 0 && !rb_ignore_errno(errno))) {
-        if(retlen == 0)
-            close_conn(conn, WAIT_PLAIN, "%s", remote_closed);
+    if(retlen == 0) {
+        close_conn(conn, WAIT_PLAIN, "%s", remote_closed);
+        return;
+    }
+
+    if(retlen < 0 && !rb_ignore_errno(errno)) {
         if(retlen == RB_RW_SSL_ERROR)
             err = rb_get_ssl_strerror(conn->mod_fd);
         else
@@ -471,16 +474,16 @@ conn_plain_read_shutdown_cb(rb_fde_t *fd, void *data)
     while(1) {
         length = rb_read(conn->plain_fd, inbuf, sizeof(inbuf));
 
-        if(length == 0 || (length < 0 && !rb_ignore_errno(errno))) {
-            rb_close(conn->plain_fd);
-            rb_dlinkAdd(conn, &conn->node, &dead_list);
-            return;
-        }
+        if(length > 0)
+            continue;
 
-        if(length < 0) {
+        if(length < 0 && rb_ignore_errno(errno)) {
             rb_setselect(conn->plain_fd, RB_SELECT_READ, conn_plain_read_shutdown_cb, conn);
             return;
         }
+
+        rb_close(conn->plain_fd);
+        rb_dlinkAdd(conn, &conn->node, &dead_list);
     }
 }
 
@@ -507,12 +510,12 @@ conn_mod_read_cb(rb_fde_t *fd, void *data)
 
         length = rb_read(conn->mod_fd, inbuf, sizeof(inbuf));
 
-        if(length == 0 || (length < 0 && !rb_ignore_errno(errno))) {
-            if(length == 0) {
-                close_conn(conn, WAIT_PLAIN, "%s", remote_closed);
-                return;
-            }
+        if(length == 0) {
+            close_conn(conn, WAIT_PLAIN, "%s", remote_closed);
+            return;
+        }
 
+        if((length < 0 && !rb_ignore_errno(errno))) {
             if(length == RB_RW_SSL_ERROR)
                 err = rb_get_ssl_strerror(conn->mod_fd);
             else
@@ -520,6 +523,7 @@ conn_mod_read_cb(rb_fde_t *fd, void *data)
             close_conn(conn, WAIT_PLAIN, "Read error: %s", err);
             return;
         }
+
         if(length < 0) {
             if(length != RB_RW_SSL_NEED_WRITE)
                 rb_setselect(conn->mod_fd, RB_SELECT_READ, conn_mod_read_cb, conn);
