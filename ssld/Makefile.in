@@ -13,7 +13,7 @@ RM              = @RM@
 LEX             = @LEX@
 LEXLIB          = @LEXLIB@
 CFLAGS          = @IRC_CFLAGS@ -DIRCD_PREFIX=\"@prefix@\"
-LDFLAGS         = @LDFLAGS@
+LDFLAGS         = @LDFLAGS@ @SSL_LIBS@
 MKDEP           = @MKDEP@ -DIRCD_PREFIX=\"@prefix@\"
 MV              = @MV@
 RM              = @RM@

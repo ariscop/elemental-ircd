@@ -83,6 +83,7 @@
 
 #include "stdinc.h"
 #include "http_parser.h"
+#include <openssl/sha.h>
 
 #define MAXPASSFD 4
 #ifndef READBUF_SIZE
@@ -782,7 +783,7 @@ ws_handshake_cb(rb_fde_t *fd, void *data)
     size_t parsed;
 
     while(1) {
-        length = rb_read(hs->conn->mod_fd, inbuf, 1);
+        length = rb_read(hs->conn->mod_fd, inbuf, sizeof(inbuf));
 
         if(length == 0 || (length < 0 && !rb_ignore_errno(errno))) {
             finish_ws_handshake(hs, errno);
@@ -815,6 +816,11 @@ static void
 finish_ws_handshake(ws_handshake_t * hs, int error)
 {
     conn_t * conn = hs->conn;
+    SHA_CTX ctx;
+    static char uuid[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    unsigned char digest[SHA_DIGEST_LENGTH];
+    unsigned char *key;
+    char request[1024];
 
     /* Clear callback, we're done reading */
     rb_setselect(conn->mod_fd, RB_SELECT_READ, NULL, NULL);
@@ -822,12 +828,42 @@ finish_ws_handshake(ws_handshake_t * hs, int error)
     if(error)
         goto error;
 
-    //printf("Url: %s\n", hs->url);
-    //printf("Upgrade: %s\n", hs->upgrade);
-    //printf("Protocol: %s\n", hs->sec_protocol);
-    //printf("Version: %s\n", hs->sec_version);
-    //printf("Key: %s\n", hs->sec_key);
+    if(!hs->ctx.upgrade)
+        goto error;
 
+    if(strcmp(hs->upgrade, "websocket") != 0)
+        goto error;
+
+    if(atoi(hs->sec_version) != 13)
+        goto error;
+
+    /* TODO: handle protocol? */
+    /* TODO: handle hs->url? */
+
+    SHA1_Init(&ctx);
+    SHA1_Update(&ctx, hs->sec_key, strlen(hs->sec_key));
+    SHA1_Update(&ctx, uuid, strlen(uuid));
+    SHA1_Final(digest, &ctx);
+
+    key = rb_base64_encode(digest, sizeof(digest));
+
+    snprintf(request, sizeof(request),
+        "HTTP/1.1 101 Switching Protocols\r\n"
+        "Upgrade: websocket\r\n"
+        "Connection: Upgrade\r\n"
+        "Sec-WebSocket-Protocol: elemental-ircd\r\n"
+        "Sec-WebSocket-Accept: %s\r\n"
+        "\r\n", key);
+
+    conn_mod_write(conn, request, strlen(request));
+    /* HACK: ^ doesn't call rb_setselect, so we have to call sendq */
+    conn_mod_write_sendq(conn->mod_fd, conn);
+
+    rb_free(hs);
+
+    /* Handshake complete */
+    conn_handshake_accept(conn);
+    return;
 error:
     /* TODO: send browser the error */
     close_conn(conn, NO_WAIT, NULL);
