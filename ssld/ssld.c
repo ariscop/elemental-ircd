@@ -165,7 +165,7 @@ typedef struct _conn {
 /* Duplicated in listener.h */
 #define PLAIN_PORT (0)
 #define SSL_PORT   (1 << 0)
-#define WS_PORT    (1 << 0)
+#define WS_PORT    (1 << 1)
 
 #define IsSSL(x)   ((x)->type & SSL_PORT)
 #define IsWS(x)    ((x)->type & WS_PORT)
@@ -681,11 +681,169 @@ ssl_process_connect(mod_ctl_t * ctl, mod_ctl_buf_t * ctlb)
     conn_handshake_connect(conn);
 }
 
+
+#define FIELD_LEN (32)
+#define VALUE_LEN (32)
+
+typedef struct _ws_handshake {
+    http_parser ctx;
+    http_parser_settings *settings;
+    conn_t *conn;
+    int done;
+    int in_value;
+
+    char field[FIELD_LEN];
+
+    char url[VALUE_LEN];
+    char upgrade[VALUE_LEN];
+
+    char sec_key[VALUE_LEN];
+    char sec_protocol[VALUE_LEN];
+    char sec_version[VALUE_LEN];
+} ws_handshake_t;
+
+static int on_url(http_parser * parser, const char * at, size_t length)
+{
+    ws_handshake_t *hs = (ws_handshake_t*)parser;
+
+    if(VALUE_LEN < (strlen(hs->url) + length + 1))
+        return 1;
+
+    strncat(hs->url, at, length);
+    return 0;
+}
+
+static int on_header_field(http_parser * parser, const char * at, size_t length)
+{
+    ws_handshake_t *hs = (ws_handshake_t*)parser;
+
+    /* We've just finished a field value
+     * reset the field name */
+    if(hs->in_value) {
+        hs->in_value = 0;
+        hs->field[0] = '\0';
+    }
+
+    if(FIELD_LEN < (strlen(hs->field) + length + 1))
+        return 1;
+
+    strncat(hs->field, at, length);
+    return 0;
+}
+
+static int on_header_value(http_parser * parser, const char * at, size_t length)
+{
+    ws_handshake_t *hs = (ws_handshake_t*)parser;
+    char * field = NULL;
+
+    hs->in_value = 1;
+
+    if(!strcmp(hs->field, "Sec-WebSocket-Protocol"))
+        field = hs->sec_protocol;
+    if(!strcmp(hs->field, "Sec-WebSocket-Version"))
+        field = hs->sec_version;
+    if(!strcmp(hs->field, "Sec-WebSocket-Key"))
+        field = hs->sec_key;
+    if(!strcmp(hs->field, "Upgrade"))
+        field = hs->upgrade;
+
+    if(!field)
+        return 0;
+
+    if(FIELD_LEN < (strlen(hs->field) + length + 1))
+        return 1;
+
+    strncat(field, at, length);
+    return 0;
+}
+
+static int on_headers_complete(http_parser * parser)
+{
+    ws_handshake_t *hs = (ws_handshake_t*)parser;
+    hs->done = 1;
+    return 0;
+}
+
+http_parser_settings parser_settings = {
+    .on_url = on_url,
+    .on_header_field = on_header_field,
+    .on_header_value = on_header_value,
+    .on_headers_complete = on_headers_complete
+};
+
+static void start_ws_handshake(conn_t * conn);
+static void finish_ws_handshake(ws_handshake_t * hs, int error);
+
+static void
+ws_handshake_cb(rb_fde_t *fd, void *data)
+{
+    ws_handshake_t * hs = data;
+    int length;
+    size_t parsed;
+
+    while(1) {
+        length = rb_read(hs->conn->mod_fd, inbuf, 1);
+
+        if(length == 0 || (length < 0 && !rb_ignore_errno(errno))) {
+            finish_ws_handshake(hs, errno);
+            return;
+        }
+
+        parsed = http_parser_execute(&hs->ctx, hs->settings,
+                                      inbuf, (size_t)length);
+
+        if(hs->done || hs->ctx.http_errno) {
+            finish_ws_handshake(hs, hs->ctx.http_errno);
+            break;
+        }
+    }
+}
+
+static void
+start_ws_handshake(conn_t * conn)
+{
+    ws_handshake_t * hs;
+    hs = rb_malloc(sizeof(*hs));
+    hs->conn = conn;
+    hs->settings = &parser_settings;
+    http_parser_init(&hs->ctx, HTTP_REQUEST);
+
+    rb_setselect(conn->mod_fd, RB_SELECT_READ, ws_handshake_cb, hs);
+}
+
+static void
+finish_ws_handshake(ws_handshake_t * hs, int error)
+{
+    conn_t * conn = hs->conn;
+
+    /* Clear callback, we're done reading */
+    rb_setselect(conn->mod_fd, RB_SELECT_READ, NULL, NULL);
+
+    if(error)
+        goto error;
+
+    //printf("Url: %s\n", hs->url);
+    //printf("Upgrade: %s\n", hs->upgrade);
+    //printf("Protocol: %s\n", hs->sec_protocol);
+    //printf("Version: %s\n", hs->sec_version);
+    //printf("Key: %s\n", hs->sec_key);
+
+error:
+    /* TODO: send browser the error */
+    close_conn(conn, NO_WAIT, NULL);
+    rb_free(hs);
+}
+
 static void
 conn_handshake_accept(conn_t * conn)
 {
     if(IsSSL(conn) && !IsSSLHandshakeDone(conn)) {
         rb_ssl_start_accepted(conn->mod_fd, ssl_process_accept_cb, conn, 10);
+        return;
+    }
+
+    if(IsWS(conn) && !IsWSHandshakeDone(conn)) {
+        start_ws_handshake(conn);
         return;
     }
 
