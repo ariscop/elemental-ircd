@@ -230,6 +230,42 @@ static void send_i_am_useless(mod_ctl_t * ctl);
 static void send_config_error(mod_ctl_t * ctl);
 
 
+static void conn_mod_write(conn_t * conn, void *data, size_t len);
+static void conn_plain_write(conn_t * conn, void *data, size_t len);
+
+#define WS_FLAG_FIN (0x80)
+
+#define WS_FRAME_CONTINUATION (0x0)
+#define WS_FRAME_TEXT (0x1)
+#define WS_FRAME_BINARY (0x2)
+#define WS_FRAME_CLOSE (0x8)
+#define WS_FRAME_PING (0x9)
+#define WS_FRAME_PONG (0xA)
+
+static void
+conn_ws_read(conn_t * conn, char * buffer, int length)
+{
+    /* TODO */
+}
+
+static void
+conn_ws_write(conn_t * conn, char * buffer, int length)
+{
+    int header_len;
+    char header[4] = {WS_FLAG_FIN | WS_FRAME_BINARY, 0, 0, 0};
+    if(length < 126) {
+        header[1] = (char)length;
+        header_len = 2;
+    } else {
+        header[1] = 126;
+        uint16_to_buf(&header[2], htons(length));
+        header_len = 4;
+    }
+    conn_mod_write(conn, header, header_len);
+    conn_mod_write(conn, buffer, length);
+}
+
+
 static conn_t *
 conn_find_by_id(int32_t id)
 {
@@ -469,7 +505,10 @@ conn_plain_read_cb(rb_fde_t *fd, void *data)
             return;
         }
         conn->plain_in += length;
-        conn_mod_write(conn, inbuf, length);
+        if(IsWS(conn))
+            conn_ws_write(conn, inbuf, length);
+        else
+            conn_mod_write(conn, inbuf, length);
     }
 }
 
@@ -547,7 +586,10 @@ conn_mod_read_cb(rb_fde_t *fd, void *data)
             return;
         }
         conn->mod_in += length;
-        conn_plain_write(conn, inbuf, length);
+        if(IsWS(conn))
+            conn_ws_read(conn, inbuf, length);
+        else
+            conn_plain_write(conn, inbuf, length);
     }
 }
 
@@ -684,7 +726,7 @@ ssl_process_connect(mod_ctl_t * ctl, mod_ctl_buf_t * ctlb)
 
 
 #define FIELD_LEN (32)
-#define VALUE_LEN (32)
+#define VALUE_LEN (128)
 
 typedef struct _ws_handshake {
     http_parser ctx;
@@ -708,7 +750,7 @@ static int on_url(http_parser * parser, const char * at, size_t length)
     ws_handshake_t *hs = (ws_handshake_t*)parser;
 
     if(VALUE_LEN < (strlen(hs->url) + length + 1))
-        return 1;
+        return EOVERFLOW;
 
     strncat(hs->url, at, length);
     return 0;
@@ -726,7 +768,7 @@ static int on_header_field(http_parser * parser, const char * at, size_t length)
     }
 
     if(FIELD_LEN < (strlen(hs->field) + length + 1))
-        return 1;
+        return EOVERFLOW;
 
     strncat(hs->field, at, length);
     return 0;
@@ -751,8 +793,8 @@ static int on_header_value(http_parser * parser, const char * at, size_t length)
     if(!field)
         return 0;
 
-    if(FIELD_LEN < (strlen(hs->field) + length + 1))
-        return 1;
+    if(VALUE_LEN < (strlen(hs->field) + length + 1))
+        return EOVERFLOW;
 
     strncat(field, at, length);
     return 0;
@@ -824,6 +866,8 @@ finish_ws_handshake(ws_handshake_t * hs, int error)
 
     /* Clear callback, we're done reading */
     rb_setselect(conn->mod_fd, RB_SELECT_READ, NULL, NULL);
+
+    SetWSHandshakeDone(conn);
 
     if(error)
         goto error;
