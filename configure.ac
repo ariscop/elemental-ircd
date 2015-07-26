@@ -7,7 +7,7 @@ AC_CONFIG_AUX_DIR([libratbox/tools])
 AC_CONFIG_SRCDIR([src/ircd.c])
 AC_CONFIG_HEADERS([include/setup.h])
 AC_PREFIX_DEFAULT($HOME/ircd)
-AC_LANG(C)
+AC_LANG([C++])
 
 AC_ENABLE_SHARED
 AC_DISABLE_STATIC
@@ -16,11 +16,12 @@ AM_INIT_AUTOMAKE([subdir-objects])
 AM_SILENT_RULES([yes])
 AM_PROG_AR
 
+AC_PROG_CXX
 AC_PROG_CC_C99([], [AC_MSG_ERROR(elemental-ircd requires a C99 capable compiler)])
 
 LT_INIT([dlopen])
 
-GCC_STACK_PROTECT_CC
+GCC_STACK_PROTECTOR
 
 dnl Checks for programs.
 CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1 $CFLAGS"
@@ -537,7 +538,12 @@ if test "$found" = yes; then
 	LDFLAGS="${LDFLAGS} -Wl,-rpath=\${libdir}"
 fi
 
+AC_LANG_PUSH([C])
 RB_CFLAGS
+AC_LANG_POP
+AC_LANG_PUSH([C++])
+RB_CFLAGS
+AC_LANG_POP
 
 AC_SUBST(MODULES_LIBS)
 AC_SUBST(MOD_TARGET)

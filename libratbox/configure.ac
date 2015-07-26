@@ -6,7 +6,7 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([tools])
 AC_CONFIG_SRCDIR([include/ratbox_lib.h])
 AC_CONFIG_HEADERS([include/libratbox_config.h])
-AC_LANG(C)
+AC_LANG([C++])
 
 AM_INIT_AUTOMAKE([subdir-objects])
 AM_SILENT_RULES([yes])
@@ -14,6 +14,7 @@ AM_SILENT_RULES([yes])
 AC_PREFIX_DEFAULT(/usr/local/libratbox)
 AC_USE_SYSTEM_EXTENSIONS
 
+AC_PROG_CXX
 AC_PROG_CC_C99([], [AC_MSG_ERROR(libratbox requires a C99 capable compiler)])
 AC_PROG_INSTALL
 AC_PROG_EGREP
@@ -29,7 +30,7 @@ AM_MAINTAINER_MODE
 
 LT_INIT([dlopen])
 
-GCC_STACK_PROTECT_CC
+GCC_STACK_PROTECTOR
 
 PKG_PROG_PKG_CONFIG
 
@@ -344,7 +345,12 @@ if test "$balloc" = no; then
 	AC_DEFINE([NOBALLOC], 1, [Define to 1 if you wish to disable the block allocator.])
 fi
 
+AC_LANG_PUSH([C])
 RB_CFLAGS
+AC_LANG_POP
+AC_LANG_PUSH([C++])
+RB_CFLAGS
+AC_LANG_POP
 
 AC_SUBST(LDFLAGS)
 AC_SUBST(PICFLAGS)
