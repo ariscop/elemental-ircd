@@ -1,0 +1,60 @@
+
+os: MinGW
+
+install:
+    - ps: Start-FileDownload 'http://downloads.sourceforge.net/project/msys2/Base/x86_64/msys2-base-x86_64-20150512.tar.xz'
+    - 7z x msys2-base-x86_64-20150512.tar.xz
+    - C:\cygwin\bin\tar.exe -C /cygdrive/c/ -xf msys2-base-x86_64-20150512.tar
+
+    - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows"
+    - set MSYSTEM=MINGW64
+
+    - bash /usr/bin/pacman-key --init
+    - bash /usr/bin/pacman-key --populate msys2
+    - pacman --noconfirm -Sy
+    - pacman --noconfirm --needed -S bash pacman pacman-mirrors msys2-runtime
+    - pacman --noconfirm --needed -Syu
+    - pacman --noconfirm --needed -S base-devel git mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64 mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
+    - ps: >-
+        bash -c @"
+          # Install autoconf-archive
+          exec 0</dev/null 2>/dev/null
+          wget --quiet http://gnu.uberglobalmirror.com/autoconf-archive/autoconf-archive-2015.02.24.tar.xz
+          tar -xf autoconf-archive-2015.02.24.tar.xz
+          cd autoconf-archive-2015.02.24 && ./configure --prefix=/usr && make && make install
+        "@
+
+build_script:
+    - ps: >-
+        bash -c @"
+          set -e
+          # stdin seems to be invalid on appveyor, so set it to null
+          exec 0</dev/null
+          ./autogen.sh
+          ./configure --disable-maintainer-mode --host=x86_64-w64-mingw32 --prefix=C:/ircd --enable-debug --enable-coverage
+          make
+          make install
+        
+          # Libratbox doesn't get installed for some reason, fix
+          cp libratbox/src/.libs/libratbox.dll /c/ircd/bin/
+        
+          #Copy required libraries
+          cd /mingw64/bin/
+          cp libeay32.dll libgcc_s_seh-1.dll libsqlite3-0.dll libssp-0.dll libwinpthread-1.dll ssleay32.dll zlib1.dll /c/ircd/bin
+        "@
+
+test_script:
+    - ps: >-
+        bash -c @"
+          set -e
+        
+          # Elemental doesn't know how to pull nameservers on windows
+          # But will check /etc/resolv.conf (C:\etc\resolv.conf)
+          mkdir /c/etc
+          echo nameserver 8.8.8.8 > /c/etc/resolv.conf
+        
+          testsuite/startall.sh
+          make check
+          testsuite/killall.sh
+        "@
+
