@@ -69,7 +69,6 @@ automod_LTLIBRARIES =     \
     m_set.la              \
     m_signon.la           \
     m_snote.la            \
-    m_stats.la            \
     m_svinfo.la           \
     m_tb.la               \
     m_testline.la         \
