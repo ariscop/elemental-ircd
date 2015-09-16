@@ -48,3 +48,5 @@ test_script:
           testsuite/killall.sh
         "@
 
+on_failure:
+    - cat tests/test-suite.log
