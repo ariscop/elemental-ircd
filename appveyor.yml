@@ -8,7 +8,7 @@ install:
     - ps: >-
         bash -c @"
           # Install autoconf-archive
-          exec 0</dev/null 2>&0
+          exec 0</dev/null 2>&1
           wget --quiet http://gnu.uberglobalmirror.com/autoconf-archive/autoconf-archive-2015.02.24.tar.xz
           tar -xf autoconf-archive-2015.02.24.tar.xz
           cd autoconf-archive-2015.02.24 && ./configure --prefix=/usr && make && make install
@@ -19,7 +19,7 @@ build_script:
         bash -c @"
           set -e
           # stdin seems to be invalid on appveyor, so set it to null
-          exec 0</dev/null 2>&0
+          exec 0</dev/null 2>&1
           ./autogen.sh
           ./configure --disable-maintainer-mode --host=x86_64-w64-mingw32 --prefix=C:/ircd --enable-debug --enable-coverage
           make
