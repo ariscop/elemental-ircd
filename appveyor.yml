@@ -2,7 +2,8 @@ install:
     - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows"
     - set MSYSTEM=MINGW64
     - pacman --noconfirm -Sy
-    - pacman --noconfirm --needed -S bash pacman pacman-mirrors msys2-runtime
+    - pacman --noconfirm --needed -S pacman-mirrors
+    - pacman --noconfirm -Sy
     - pacman --noconfirm --needed -S base-devel git mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64 mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
     - ps: >-
         bash -c @"
