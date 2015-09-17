@@ -1,8 +1,6 @@
-artifacts:
-  - path: elemental-ircd.zip
-    name: Elemental-ircd
 
 install:
+    - set "OLDPATH=%PATH%"
     - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows"
     - set MSYSTEM=MINGW64
     - pacman --noconfirm -Sy
@@ -40,6 +38,10 @@ build_script:
           pushd /c/ircd
           zip "$APPVEYOR_BUILD_FOLDER/elemental-ircd.zip" *
         "@
+
+after_build:
+    - set PATH="%PATH%;%OLDPATH%"
+    - appveyor PushArtifact elemental-ircd.zip
 
 test_script:
     - ps: >-
