@@ -2,8 +2,6 @@
 install:
     - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows;%PATH%"
     - set MSYSTEM=MINGW64
-    - pacman --noconfirm -Sy
-    - pacman --noconfirm --needed -S pacman-mirrors
     - pacman --noconfirm --needed -S base-devel git zip mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64-openssl mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
     - ps: >-
         bash -c @"
@@ -35,7 +33,7 @@ build_script:
         
           # And zip for appveyor
           pushd /c/ircd
-          zip -r elemental-ircd.zip *
+          zip -r elemental-ircd.zip * -x \*.la \*.a
         "@
 
 after_build:
