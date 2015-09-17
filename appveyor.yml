@@ -1,5 +1,5 @@
 artifacts:
-  - path: ircd/*
+  - path: ircd\*
     name: Elemental-ircd
 
 install:
