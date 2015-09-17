@@ -46,9 +46,6 @@ test_script:
         bash -c @"
           set -e
         
-          echo Tests disabled due to windows build being broken
-          exit 0
-        
           # Elemental doesn't know how to pull nameservers on windows
           # But will check /etc/resolv.conf (C:\etc\resolv.conf)
           mkdir -p /c/etc
@@ -56,8 +53,14 @@ test_script:
         
           scripts/travis_genssl.sh
           testsuite/startall.sh
-          make check
+          echo Tests disabled due to windows build being broken
+          echo make check
+          sleep 10
+          testsuite/killall.sh
+        
+          zip logs.zip /c/ircd/logs
         "@
+    - appveyor PushArtifact logs.zip
 
 on_failure:
     - cat tests/test-suite.log
