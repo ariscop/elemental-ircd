@@ -2,6 +2,9 @@
 install:
     - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows;%PATH%"
     - set MSYSTEM=MINGW64
+    - pacman --noconfirm -Sy
+    - pacman --noconfirm --needed -S pacman-mirrors
+    - pacman --noconfirm -Sy
     - pacman --noconfirm --needed -S base-devel git zip mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64-openssl mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
     - ps: >-
         bash -c @"
@@ -49,7 +52,6 @@ test_script:
           mkdir -p /c/etc
           echo nameserver 8.8.8.8 > /c/etc/resolv.conf
         
-          scripts/travis_genssl.sh
           testsuite/startall.sh
           echo Tests disabled due to windows build being broken
           echo make check
