@@ -36,12 +36,10 @@ build_script:
         
           # And zip for appveyor
           pushd /c/ircd
-          zip -r "$APPVEYOR_BUILD_FOLDER/elemental-ircd.zip" *
+          zip -r elemental-ircd.zip *
+          PATH="$PATH:$OLDPATH"
+          appveyor PushArtifact elemental-ircd.zip
         "@
-
-after_build:
-    - set "PATH=%PATH%;%OLDPATH%"
-    - appveyor PushArtifact elemental-ircd.zip
 
 test_script:
     - ps: >-
