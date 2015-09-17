@@ -1,7 +1,6 @@
 
 install:
-    - set "OLDPATH=%PATH%"
-    - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows"
+    - set "PATH=C:\msys64\usr\bin;C:\msys64\mingw64\bin;C:\Windows\System32;C:\Windows;%PATH%"
     - set MSYSTEM=MINGW64
     - pacman --noconfirm -Sy
     - pacman --noconfirm --needed -S pacman-mirrors
@@ -37,9 +36,10 @@ build_script:
           # And zip for appveyor
           pushd /c/ircd
           zip -r elemental-ircd.zip *
-          PATH="$PATH:$OLDPATH"
-          appveyor PushArtifact elemental-ircd.zip
         "@
+
+after_build:
+    - appveyor PushArtifact c:/ircd/elemental-ircd.zip
 
 test_script:
     - ps: >-
