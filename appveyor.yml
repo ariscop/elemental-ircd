@@ -1,5 +1,5 @@
 artifacts:
-  - path: ircd\*
+  - path: elemental-ircd.zip
     name: Elemental-ircd
 
 install:
@@ -7,7 +7,7 @@ install:
     - set MSYSTEM=MINGW64
     - pacman --noconfirm -Sy
     - pacman --noconfirm --needed -S pacman-mirrors
-    - pacman --noconfirm --needed -S base-devel git mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64-openssl mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
+    - pacman --noconfirm --needed -S base-devel git zip mingw-w64-x86_64-tcl mingw-w64-x86_64-tcllib mingw-w64-x86_64-openssl mingw-w64-x86_64-toolchain mingw-w64-x86_64-sqlite3
     - ps: >-
         bash -c @"
           # Install autoconf-archive
@@ -36,8 +36,9 @@ build_script:
           cp libeay32.dll libgcc_s_seh-1.dll libsqlite3-0.dll libssp-0.dll libwinpthread-1.dll ssleay32.dll zlib1.dll /c/ircd/bin
           popd
         
-          # And copy back so appveyor can find the files for upload
-          cp -r /c/ircd/ ircd
+          # And zip for appveyor
+          pushd /c/ircd
+          zip "$APPVEYOR_BUILD_FOLDER/elemental-ircd.zip" *
         "@
 
 test_script:
