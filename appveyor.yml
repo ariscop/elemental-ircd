@@ -45,22 +45,22 @@ after_build:
 test_script:
     - ps: >-
         bash -c @"
-          set -e
-        
           # Elemental doesn't know how to pull nameservers on windows
           # But will check /etc/resolv.conf (C:\etc\resolv.conf)
           mkdir -p /c/etc
           echo nameserver 8.8.8.8 > /c/etc/resolv.conf
         
-          testsuite/startall.sh
+          testsuite/startall.sh 2>&1
           echo Tests disabled due to windows build being broken
           echo make check
           sleep 10
           taskkill //IM ircd.exe
-        
-          zip logs.zip /c/ircd/logs
         "@
-    - appveyor PushArtifact logs.zip
 
-on_failure:
-    - cat tests/test-suite.log
+after_test:
+    - ps: >-
+        bash -c @"
+          zip -r logs.zip /c/ircd/logs || true
+          zip logs.zip tests/test-suite.log || true
+          appveyor PushArtifact logs.zip
+        "@
