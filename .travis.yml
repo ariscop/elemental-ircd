@@ -15,6 +15,8 @@ env:
   global:
    # Needed for osx builds
    - PKG_CONFIG_PATH: /usr/local/opt/sqlite/lib/pkgconfig
+   # Coverity settings
+   - secure: "YlP17vf3nSIAR+FGx541X+nNQEY7hNQoEU83S+4PvmJvJacyKJn3uvsB8/WUZIWsTE23mSSquys7yECRnrccgzXJX41EXqRNKgPRWLnerq/djKFYXznY0sJMboRi+qkwD56i2IluhqHQdovdwQBQMWARmxx1a+nz+ujOwFyd3dh2vml1iVG5kZWfN3wpPe5QxgdC6+9Pwbid3RQOxWWclJZTqWYICUGclkLMpQeJcWFFiKnpVSWwad2TE1BEXSl3DzVzzfkfaZaGr0iNTd9Jlo5+MtMRVwtCP4Y3PjS3g+MXZ1dXRy3gfR/OAL5+1HCkOgzqm1Pwp2EFTCQyoYa/2rp4lfikf/EGsI8u02pom7Rqmqhlad8os4rean7Xfj6g47x9Nqc0aNhU7Db16FaSxl4Z6e4sklghtVITZ/y+7WQkY72o1VPlpJv6p8zxpbU1/tmixNLoTjjMBKbxgTYkN0M7SstrStttbkHt0XcQmHTOYWRBRrY2UcO3DQXlgQnFfH3kavtlAowEm6l/TX/m02m3eulDNBOjhGkqL7rd/gUywhwlVsb8iHa4mgFGalKy2PullkvPcV2eOzGg8Z7vRbnkdPDral5xriRkyli21UJM00vA9nFYYJLjWBvFor3BUWZvoyKZz4jCJA9z/ivrRIP+IusIdxeyojNJ/j+vLks="
 
 addons:
   apt:
@@ -42,10 +44,28 @@ install:
     esac
     gem install coveralls-lcov
 
+before_script:
+  - |
+    if [[ ${TRAVIS_JOB_NUMBER##*.} == 1 ]]; then
+      if [[ ${TRAVIS_BRANCH} == master || ${TRAVIS_PULL_REQUEST} != false ]]; then
+        # Run coverage only on the first job (gcc+linux) for master and pr's
+        COVERAGE=--enable-coverage
+      fi
+      if [[ ${TRAVIS_BRANCH} == coverity_scan ]]; then
+        # Check we're allowed to build
+        COVERITY=$(scripts/coverity.sh --build-command)
+      fi
+      if [[ ${COVERITY} ]]; then
+        # We are, install coverity
+        scripts/coverity.sh --download
+      fi
+    fi
+
+
 script:
   - ./autogen.sh
-  - ./configure --enable-debug --enable-coverage
-  - make -j2
+  - ./configure --enable-debug $COVERAGE
+  - $COVERITY make -j2
   - make install
   - testsuite/startall.sh
   - testsuite/wait-links.sh
@@ -55,13 +75,13 @@ script:
 
 after_success:
   - |
-    if [[ ( $TRAVIS_BRANCH == master || $TRAVIS_PULL_REQUEST != false )
-         && $TRAVIS_JOB_NUMBER =~ .*\.1 ]]
-    then
-    # Run coverage only on the first job (gcc+linux) for master and pr's
+    if [[ "${COVERAGE}" ]]; then
       lcov --compat-libtool --directory . --capture --output-file coverage.info
       lcov --remove coverage.info "/usr/*" --output-file coveralls.info
       coveralls-lcov coveralls.info
+    fi
+    if [[ ${COVERITY} ]]; then
+      scripts/coverity.sh --upload
     fi
 
 after_script:
