@@ -24,50 +24,52 @@
 #ifndef RB_ATTRIB_H
 #define RB_ATTRIB_H 1
 
-#ifdef __GNUC__
+/* for GCC version checks, evaluates to zero if we're not on gcc */
+#ifndef GCC_VERSION
+#define GCC_VERSION (__GNUC__ * 1000 + __GNUC_MINOR__)
+#endif
 
 /* Optimize for true or false branches */
 #define rb_likely(x)       __builtin_expect(!!(x), 1)
 #define rb_unlikely(x)     __builtin_expect(!!(x), 0)
 
 /* Warn on unchecked returns */
+#ifndef __must_check
 #define __must_check    __attribute__((warn_unused_result))
+#endif
 
 /* Function never returns */
+#ifndef __noreturn
 #define __noreturn       __attribute__((noreturn))
+#endif
 
 /* Validate and Type-check printf arguments */
+#ifndef __format_printf
 #define __format_printf(fmt, args) __attribute__((format(printf, fmt, args)));
+#endif
 
 /* Mark argument as unused */
+#ifndef __unused
 #define __unused __attribute__((unused))
+#endif
 
 /* Mark a function as depricated */
+#ifndef __deprecated
 #define __deprecated __attribute__((deprecated))
+#endif
 
 /* Non-null return value */
-#ifdef __COVERITY__
+#if     !defined(__returns_nonnull) && GCC_VERSION >= 4009
 #define __returns_nonnull __attribute__((returns_nonnull))
-#else
+#endif
+
+#ifndef __returns_nonnull
 #define __returns_nonnull
 #endif
+
 /* function returns new memory (and warn on unchecked return) */
-#define __malloc __attribute__((malloc)) __attribute__((warn_unused_result))
-
-#else  /* __GNUC__ */
-
-#define rb_likely(x)       (x)
-#define rb_unlikely(x)     (x)
-
-#define __must_check
-#define __nonull
-#define __noreturn
-#define __format_printf
-#define __unused
-#define __deprecated
-#define __returns_nonnull
-#define __malloc
-
-#endif /* __GNUC__ */
+#ifndef __malloc
+#define __malloc __attribute__((malloc)) __must_check
+#endif
 
 #endif /* RB_ATTRIB_H */
